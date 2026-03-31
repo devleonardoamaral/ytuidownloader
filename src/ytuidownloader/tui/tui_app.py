@@ -15,19 +15,20 @@ class TUIApp(App):
         self.downloader = downloader
         self.input_validator = input_validator
         self.download_thread: Thread | None = None
+        self.title = "Youtube Downloader"
+        self.history = []
+
+    def compose(self) -> ComposeResult:
         self.input_link = Input(
             type="text",
-            placeholder="Link de download (video, canal, playlist) ...",
+            placeholder="Paste here the YouTube link (video, channel, playlist)...",
             id="input_link",
             validators=self.input_validator,
         )
         self.button_download = Button("Download", id="button_download", disabled=True)
         self.progress_bar = ProgressBar()
         self.label = Label("")
-        self.title = "Youtube Downloader"
-        self.history = []
 
-    def compose(self) -> ComposeResult:
         self.input_link.styles.width = self.screen.size.width * 0.75
         self.input_link.styles.max_width = 75
 
@@ -51,6 +52,14 @@ class TUIApp(App):
         yield vertical
         yield Footer()
 
+    def _is_download_thread_running(self) -> bool:
+        return self.download_thread is not None and self.download_thread.is_alive()
+
+    def _update_download_button(self) -> None:
+        self.button_download.disabled = not (
+            self.input_link.is_valid and not self._is_download_thread_running()
+        )
+
     def progress_hook(self, downloaded: int, total: int | None) -> None:
         if not self.progress_bar.total or self.progress_bar.total != total:
             self.progress_bar.update(total=total, progress=downloaded)
@@ -60,37 +69,32 @@ class TUIApp(App):
 
     def join_hook(self, info: DownloadInfo, error: Exception | None) -> None:
         if info.downloaded:
-            if self.progress_bar.total is None:
-                self.label.update("Essa URL já foi baixada anteriormente.")
-            else:
-                self.label.update("Download Concluído!")
-                self.button_download.disabled = False
+            self.label.update("Download completed")
         else:
-            self.label.update(f"Falha no Download: {str(error)}")
-
+            self.label.update(f"Download failed: {str(error)}")
+        self.progress_hook(100, 100)
         self.thread = None
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "button_download":
-            if self.download_thread is None or not self.download_thread.is_alive():
-                self.button_download.disabled = True
+            if not self._is_download_thread_running():
                 self.download_thread = self.downloader.download(
                     Link(self.input_link.value),
                     Path(os.getcwd()),
                     progress_hook=self.progress_hook,
                     join_hook=self.join_hook,
                 )
-                self.label.update("Baixando...")
+                self._update_download_button()
+                self.label.update("Downloading...")
 
     def on_input_changed(self, event: Input.Changed) -> None:
         if event.input.id == "input_link":
-            self.button_download.disabled = True
-
-            if self.download_thread is None or not self.download_thread.is_alive():
+            if not self._is_download_thread_running():
                 self.progress_bar.total = None
 
                 if self.input_link.is_valid:
-                    self.label.update("Pressione o botão para começar...")
-                    self.button_download.disabled = False
+                    self.label.update("Press the Download button to start...")
                 else:
-                    self.label.update("Link inválido!")
+                    self.label.update("Invalid link")
+
+            self._update_download_button()
