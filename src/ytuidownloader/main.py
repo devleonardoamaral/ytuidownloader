@@ -3,7 +3,7 @@ from pathlib import Path
 
 from donwloader import YoutubeDownloader
 from tui import TUIApp
-from tui.validators import YoutubeValidator
+from tui.validators import PathValidator, YoutubeValidator
 
 
 def main() -> None:
@@ -15,8 +15,13 @@ def main() -> None:
         raise RuntimeError("Could not create download directory.") from e
 
     youtube_validator = YoutubeValidator()
+    path_validator = PathValidator()
     yt_downloader = YoutubeDownloader()
-    app = TUIApp(downloader=yt_downloader, input_validator=youtube_validator)
+    app = TUIApp(
+        downloader=yt_downloader,
+        input_link_validator=youtube_validator,
+        input_path_validator=path_validator,
+    )
     app.run()
 
 

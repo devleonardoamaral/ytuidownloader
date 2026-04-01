@@ -10,4 +10,4 @@ class YoutubeValidator(Validator):
         ):
             return self.success()
         else:
-            return self.failure("Link inválido!")
+            return self.failure()
